@@ -17,7 +17,7 @@ import requests
 TOKEN = "8234184501:AAEu77D5t2D1FvzxaOpZ4HyyYAaD9qLHmyw"  # токен от BotFather
 ADMIN_CHAT_ID = -1003753027344                           # группа или личка
 SEND_HOUR = 20
-SEND_MINUTE = 45
+SEND_MINUTE = 47
 
 MOSCOW_TZ = pytz.timezone('Europe/Moscow')
 
@@ -41,19 +41,38 @@ logger = logging.getLogger(__name__)
 
 async def get_random_article():
     """Возвращает заголовок, краткое описание и ссылку на случайную статью"""
+    # Твой User-Agent из wiki (тот же самый, чтобы Wikimedia был счастлив)
+    headers = {
+        "User-Agent": 'DailyRandomWikiBot/1.0 (https://github.com/Automatxq/nezerblah-test; b.v.mikhailovich@gmail.com)'
+    }
+
     while True:
-        # Прямой запрос к API Википедии для случайной статьи (надёжно!)
         api_url = "https://ru.wikipedia.org/w/api.php"
         params = {
             "action": "query",
             "format": "json",
             "list": "random",
-            "rnnamespace": 0,      # только основные статьи (не служебные)
+            "rnnamespace": 0,      # только основные статьи
             "rnlimit": 1
         }
-        response = requests.get(api_url, params=params).json()
-        title = response["query"]["random"][0]["title"]
 
+        response = requests.get(api_url, params=params, headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            print(f"Ошибка API: статус {response.status_code}, текст: {response.text[:200]}")
+            continue  # попробуем заново
+
+        try:
+            data = response.json()
+        except Exception as e:
+            print(f"Не удалось распарсить JSON: {e}, ответ: {response.text[:200]}")
+            continue
+
+        if "query" not in data or "random" not in data["query"] or not data["query"]["random"]:
+            print("Плохой ответ от API:", data)
+            continue
+
+        title = data["query"]["random"][0]["title"]
         page = wiki.page(title)
 
         if page.exists() and len(page.summary) > 100 and "Википедия:" not in page.title:
@@ -66,7 +85,6 @@ async def get_random_article():
     url = page.fullurl
 
     return title, summary, url
-
 
 async def daily_random_job(context: ContextTypes.DEFAULT_TYPE):
     """Ежедневная задача"""
