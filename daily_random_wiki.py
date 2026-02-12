@@ -14,13 +14,14 @@ from telegram.ext import (
 # --------------------- НАСТРОЙКИ ---------------------
 TOKEN = "8234184501:AAEu77D5t2D1FvzxaOpZ4HyyYAaD9qLHmyw"  # токен от BotFather
 ADMIN_CHAT_ID = 5868232737  # ← твой chat_id (чтобы бот знал, кому слать по умолчанию)
-SEND_HOUR = 18  # во сколько утра слать (0–23)
+SEND_HOUR = 19  # во сколько утра слать (0–23)
 SEND_MINUTE = 0
 
 # Русская Википедия
 wiki = wikipediaapi.Wikipedia(
+    user_agent='DailyWikiBot/1.0 (https://github.com/Automatxq/nezerblah-test; b.v.mikhailovich@gmail.com)',
     language='ru',
-    extract_format=wikipediaapi.ExtractFormat.WIKI  # или HTML, если хочется форматирование
+    extract_format=wikipediaapi.ExtractFormat.WIKI  # или .HTML, если хочешь форматирование
 )
 
 # Хранилище chat_id подписчиков (в реальном проекте лучше в базу: sqlite/json/redis)
