@@ -18,11 +18,14 @@ SEND_HOUR = 19  # во сколько утра слать (0–23)
 SEND_MINUTE = 0
 
 # Русская Википедия
+import wikipediaapi
+
 wiki = wikipediaapi.Wikipedia(
-    user_agent='DailyWikiBot/1.0 (https://github.com/Automatxq/nezerblah-test; b.v.mikhailovich@gmail.com)',
+    user_agent='DailyRandomWikiBot/1.0 (https://github.com/Automatxq/nezerblah-test; b.v.mikhailovich@gmail.com)',
     language='ru',
-    extract_format=wikipediaapi.ExtractFormat.WIKI  # или .HTML, если хочешь форматирование
+    extract_format=wikipediaapi.ExtractFormat.WIKI  # или .HTML, если хочешь лучшее форматирование
 )
+
 
 # Хранилище chat_id подписчиков (в реальном проекте лучше в базу: sqlite/json/redis)
 subscribers = set([ADMIN_CHAT_ID])  # изначально только ты
