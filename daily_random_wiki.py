@@ -11,12 +11,13 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+import requests
 
 # --------------------- НАСТРОЙКИ ---------------------
 TOKEN = "8234184501:AAEu77D5t2D1FvzxaOpZ4HyyYAaD9qLHmyw"  # токен от BotFather
 ADMIN_CHAT_ID = -1003753027344                           # группа или личка
 SEND_HOUR = 20
-SEND_MINUTE = 28
+SEND_MINUTE = 45
 
 MOSCOW_TZ = pytz.timezone('Europe/Moscow')
 
@@ -41,14 +42,23 @@ logger = logging.getLogger(__name__)
 async def get_random_article():
     """Возвращает заголовок, краткое описание и ссылку на случайную статью"""
     while True:
-        page = wiki.random(1)
-        if not page:
-            continue
+        # Прямой запрос к API Википедии для случайной статьи (надёжно!)
+        api_url = "https://ru.wikipedia.org/w/api.php"
+        params = {
+            "action": "query",
+            "format": "json",
+            "list": "random",
+            "rnnamespace": 0,      # только основные статьи (не служебные)
+            "rnlimit": 1
+        }
+        response = requests.get(api_url, params=params).json()
+        title = response["query"]["random"][0]["title"]
+
+        page = wiki.page(title)
 
         if page.exists() and len(page.summary) > 100 and "Википедия:" not in page.title:
             break
 
-    title = page.title
     summary = page.summary[:700]
     if len(page.summary) > 700:
         summary += "..."
