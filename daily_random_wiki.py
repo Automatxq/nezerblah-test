@@ -16,8 +16,8 @@ import requests
 # --------------------- НАСТРОЙКИ ---------------------
 TOKEN = "8234184501:AAEu77D5t2D1FvzxaOpZ4HyyYAaD9qLHmyw"  # токен от BotFather
 ADMIN_CHAT_ID = -1003753027344                           # группа или личка
-SEND_HOUR = 20
-SEND_MINUTE = 47
+SEND_HOUR = 9
+SEND_MINUTE = 30
 
 MOSCOW_TZ = pytz.timezone('Europe/Moscow')
 
