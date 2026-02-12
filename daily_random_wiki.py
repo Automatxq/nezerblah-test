@@ -12,6 +12,30 @@ from telegram.ext import (
     filters,
 )
 import requests
+import json
+import os
+
+SUBSCRIBERS_FILE = "subscribers.json"  # файл в корне проекта
+
+# Функции загрузки/сохранения
+def load_subscribers():
+    if os.path.exists(SUBSCRIBERS_FILE):
+        try:
+            with open(SUBSCRIBERS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return set(data)
+        except Exception as e:
+            print(f"Ошибка загрузки подписчиков: {e}")
+    # Если файла нет — стартуем с твоего ADMIN_CHAT_ID
+    return set([ADMIN_CHAT_ID])
+
+def save_subscribers():
+    try:
+        with open(SUBSCRIBERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(subscribers), f)
+        print(f"Подписчики сохранены: {list(subscribers)}")
+    except Exception as e:
+        print(f"Ошибка сохранения подписчиков: {e}")
 
 # --------------------- НАСТРОЙКИ ---------------------
 TOKEN = "8234184501:AAEu77D5t2D1FvzxaOpZ4HyyYAaD9qLHmyw"  # токен от BotFather
@@ -29,7 +53,8 @@ wiki = wikipediaapi.Wikipedia(
 )
 
 # Хранилище подписчиков (в продакшене → файл / база)
-subscribers = set([ADMIN_CHAT_ID])
+subscribers = load_subscribers()
+print(f"Загружено подписчиков при старте: {list(subscribers)}")
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -141,18 +166,26 @@ async def daily_random_job(context: ContextTypes.DEFAULT_TYPE):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    subscribers.add(chat_id)
-    await update.message.reply_text(
-        "Заменяю Лёню, пока он филонит на заводе 🎲\n"
-        "Чтобы отписаться — напиши /stop"
-    )
+    if chat_id not in subscribers:
+        subscribers.add(chat_id)
+        save_subscribers()
+        await update.message.reply_text(
+            "Заменяю Лёню, пока он филонит на заводе 🎲\n"
+            "Теперь каждый день в 09:30 прилетит статейка!\n"
+            "Отписаться — /stop"
+        )
+    else:
+        await update.message.reply_text("Ты уже в списке 😏")
 
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    subscribers.discard(chat_id)
-    await update.message.reply_text("Ты отписался от ежедневных статей. До встречи! 👋")
-
+    if chat_id in subscribers:
+        subscribers.discard(chat_id)
+        save_subscribers()
+        await update.message.reply_text("Отписался. Если соскучишься — /start 👋")
+    else:
+        await update.message.reply_text("Ты и так не подписан 😂")
 
 async def random_now(update: Update, context: ContextTypes.DEFAULT_TYPE):
     title, summary, url = await get_random_article()
@@ -171,7 +204,21 @@ async def random_now(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Exception while handling an update: {context.error}")
 
-
+async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Автоматически подписываем группу, если бота добавили"""
+    if update.message and update.message.new_chat_members:
+        for member in update.message.new_chat_members:
+            if member.id == context.bot.id:  # это именно наш бот добавлен
+                chat_id = update.effective_chat.id
+                if chat_id not in subscribers:
+                    subscribers.add(chat_id)
+                    save_subscribers()
+                    await update.message.reply_text(
+                        "Всем привет! 😎\n"
+                        "Теперь каждый день в 09:30 буду кидать случайную статью из Википедии.\n"
+                        "Чтобы отписаться — /stop"
+                    )
+                break
 def main():
     app = Application.builder().token(TOKEN).build()
 
@@ -179,6 +226,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stop", stop))
     app.add_handler(CommandHandler("random", random_now))
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_chat_members))
 
     # Ловим остальное
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: None))
@@ -199,7 +247,6 @@ def main():
 
     print("Бот запущен. Ожидаю сообщений и ежедневной задачи...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
-
 
 if __name__ == '__main__':
     main()
