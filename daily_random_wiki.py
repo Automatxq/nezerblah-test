@@ -16,7 +16,7 @@ from telegram.ext import (
 TOKEN = "8234184501:AAEu77D5t2D1FvzxaOpZ4HyyYAaD9qLHmyw"  # токен от BotFather
 ADMIN_CHAT_ID = -1003753027344                           # группа или личка
 SEND_HOUR = 19
-SEND_MINUTE = 28
+SEND_MINUTE = 38
 
 MOSCOW_TZ = pytz.timezone('Europe/Moscow')
 
@@ -140,7 +140,16 @@ def main():
     # Для отладки — покажет следующее время запуска
     jobs = app.job_queue.get_jobs_by_name("daily_wiki")
     if jobs:
-        print("Ежедневный джоб запланирован на:", jobs[0].next_t)
+        jobs = app.job_queue.get_jobs_by_name("daily_wiki")
+        if jobs:
+            next_run = jobs[0].next_run_time
+            print("Ежедневный джоб запланирован на:", next_run)
+            if next_run:
+                print("   (время в UTC или локальном tz бота, смотри tzinfo)")
+            else:
+                print("   (джоб уже выполнен или удалён)")
+        else:
+            print("Джоб с именем 'daily_wiki' не найден!")
     else:
         print("Внимание: джоб не добавлен!")
 
