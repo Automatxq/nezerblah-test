@@ -2,6 +2,7 @@ import asyncio
 import logging
 import wikipediaapi
 from datetime import time
+import pytz
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -13,22 +14,21 @@ from telegram.ext import (
 
 # --------------------- НАСТРОЙКИ ---------------------
 TOKEN = "8234184501:AAEu77D5t2D1FvzxaOpZ4HyyYAaD9qLHmyw"  # токен от BotFather
-ADMIN_CHAT_ID = 5868232737  # ← твой chat_id (чтобы бот знал, кому слать по умолчанию)
-SEND_HOUR = 19  # во сколько утра слать (0–23)
-SEND_MINUTE = 0
+ADMIN_CHAT_ID = -1003753027344                           # группа или личка
+SEND_HOUR = 19
+SEND_MINUTE = 28
+
+MOSCOW_TZ = pytz.timezone('Europe/Moscow')
 
 # Русская Википедия
-import wikipediaapi
-
 wiki = wikipediaapi.Wikipedia(
     user_agent='DailyRandomWikiBot/1.0 (https://github.com/Automatxq/nezerblah-test; b.v.mikhailovich@gmail.com)',
     language='ru',
-    extract_format=wikipediaapi.ExtractFormat.WIKI  # или .HTML, если хочешь лучшее форматирование
+    extract_format=wikipediaapi.ExtractFormat.WIKI
 )
 
-
-# Хранилище chat_id подписчиков (в реальном проекте лучше в базу: sqlite/json/redis)
-subscribers = set([ADMIN_CHAT_ID])  # изначально только ты
+# Хранилище подписчиков (в продакшене → файл / база)
+subscribers = set([ADMIN_CHAT_ID])
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -36,22 +36,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 # -----------------------------------------------------
 
 async def get_random_article():
     """Возвращает заголовок, краткое описание и ссылку на случайную статью"""
     while True:
-        page = wiki.random(1)  # берём одну случайную страницу
+        page = wiki.random(1)
         if not page:
             continue
 
         if page.exists() and len(page.summary) > 100 and "Википедия:" not in page.title:
-            # Пытаемся отфильтровать мусор (служебные страницы, очень короткие и т.п.)
             break
 
     title = page.title
-    summary = page.summary[:700]  # обрезаем, чтобы влезло в сообщение
+    summary = page.summary[:700]
     if len(page.summary) > 700:
         summary += "..."
 
@@ -61,14 +59,12 @@ async def get_random_article():
 
 
 async def daily_random_job(context: ContextTypes.DEFAULT_TYPE):
-    """Задача, которая выполняется каждый день"""
+    """Ежедневная задача"""
     title, summary, url = await get_random_article()
 
     text = f"✦ <b>Статейку?</b>\n\n<b>{title}</b>\n\n{summary}"
 
-    keyboard = [
-        [InlineKeyboardButton("Читать полностью →", url=url)]
-    ]
+    keyboard = [[InlineKeyboardButton("Читать полностью →", url=url)]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     for chat_id in list(subscribers):
@@ -82,7 +78,7 @@ async def daily_random_job(context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             logger.warning(f"Не удалось отправить в {chat_id}: {e}")
-            subscribers.discard(chat_id)  # чистим мёртвые чаты
+            subscribers.discard(chat_id)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,7 +97,6 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def random_now(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Команда /random — получить статью прямо сейчас"""
     title, summary, url = await get_random_article()
 
     text = f"<b>{title}</b>\n\n{summary}"
@@ -127,18 +122,27 @@ def main():
     app.add_handler(CommandHandler("stop", stop))
     app.add_handler(CommandHandler("random", random_now))
 
-    # Ловим всё остальное (можно потом расширить)
+    # Ловим остальное
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: None))
 
     # Ошибки
     app.add_error_handler(error_handler)
 
-    # Ежедневная рассылка в 9:00
+    # Ежедневная рассылка
+    send_time = time(hour=SEND_HOUR, minute=SEND_MINUTE, tzinfo=MOSCOW_TZ)
+
     app.job_queue.run_daily(
         daily_random_job,
-        time=time(hour=SEND_HOUR, minute=SEND_MINUTE),
+        time=send_time,
         name="daily_wiki"
     )
+
+    # Для отладки — покажет следующее время запуска
+    jobs = app.job_queue.get_jobs_by_name("daily_wiki")
+    if jobs:
+        print("Ежедневный джоб запланирован на:", jobs[0].next_t)
+    else:
+        print("Внимание: джоб не добавлен!")
 
     print("Бот запущен. Ожидаю сообщений и ежедневной задачи...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
