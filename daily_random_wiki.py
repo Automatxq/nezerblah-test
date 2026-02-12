@@ -16,7 +16,7 @@ from telegram.ext import (
 TOKEN = "8234184501:AAEu77D5t2D1FvzxaOpZ4HyyYAaD9qLHmyw"  # токен от BotFather
 ADMIN_CHAT_ID = -1003753027344                           # группа или личка
 SEND_HOUR = 20
-SEND_MINUTE = 10
+SEND_MINUTE = 28
 
 MOSCOW_TZ = pytz.timezone('Europe/Moscow')
 
@@ -79,6 +79,36 @@ async def daily_random_job(context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.warning(f"Не удалось отправить в {chat_id}: {e}")
             subscribers.discard(chat_id)
+
+            async def daily_random_job(context: ContextTypes.DEFAULT_TYPE):
+                """Ежедневная задача"""
+                print("=== ДЖОБ СРАБОТАЛ! ===")  # ← добавь
+                print("Текущие подписчики:", list(subscribers))  # ← сколько и какие чаты
+
+                title, summary, url = await get_random_article()
+                print("Получили статью:", title)  # ← проверим, что статья вообще пришла
+                print("Ссылка:", url)
+
+                text = f"✦ <b>Статейку?</b>\n\n<b>{title}</b>\n\n{summary}"
+
+                keyboard = [[InlineKeyboardButton("Читать полностью →", url=url)]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
+                for chat_id in list(subscribers):
+                    print(f"Пытаюсь отправить в чат {chat_id}...")  # ← логируем каждый
+                    try:
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text=text,
+                            parse_mode="HTML",
+                            reply_markup=reply_markup,
+                            disable_web_page_preview=False
+                        )
+                        print(f"Успешно отправлено в {chat_id}")
+                    except Exception as e:
+                        print(f"ОШИБКА отправки в {chat_id}: {e}")  # ← точная ошибка
+                        logger.warning(f"Не удалось отправить в {chat_id}: {e}")
+                        subscribers.discard(chat_id)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
